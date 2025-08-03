@@ -1,0 +1,84 @@
+version: '3'
+
+networks:
+  dev_network:
+    external: true
+
+services:
+  mysql:
+    image: mysql:8.0.33
+    restart: always
+    container_name: dev-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: yyds1234
+      MYSQL_DATABASE: dev_db
+      MYSQL_USER: dev
+      MYSQL_PASSWORD: dev1234
+    networks:
+      - dev_network
+    ports:
+      - 3306:3306
+  redis:
+    image: redis:7.0.11
+    restart: always
+    container_name: dev-redis
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis:/usr/local/etc/redis
+      - ./data/redis:/data
+    networks:
+      - dev_network
+    ports:
+      - 6379:6379
+  etcd:
+    image: 'bitnami/etcd:3.5.9'
+    container_name: dev-etcd
+    volumes:
+      - ./data/etcd:/bitnami/etcd/data
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://127.0.0.1:7379
+    networks:
+      - dev_network
+    ports:
+      - 7379:2379
+      - 7380:2380
+  kafka:
+    image: bitnami/kafka:3.9.0
+    container_name: dev-kafka
+    ports:
+      - 9094:9094  # 容器外部访问监听端口
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_LISTENERS: PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://localhost:9093,PLAINTEXT://kafka:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT_HOST://localhost:9094,PLAINTEXT://kafka:9092
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CFG_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_CFG_NUM_PARTITIONS: 3
+    volumes:
+      - ./data/kafka/single:/bitnami/kafka
+    networks:
+      - dev_network
+  kafka-ui:
+    container_name: dev-kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 9090:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: true
+    volumes:
+      - ./config/kafka-ui/config.yaml:/etc/kafkaui/dynamic_config.yaml
+    networks:
+      - dev_network
